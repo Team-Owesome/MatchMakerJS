@@ -1,0 +1,63 @@
+<script src="http://localhost:8001/socket.io/socket.io.js"></script>
+
+<div id="data">
+</div>
+
+
+
+<script>
+    var socket = io.connect('http://localhost:8001/');
+ 
+    var searchRoom=true;
+    var roomID=null;
+    var player={ id: 'playerID', name:'playerName' };
+
+    //what to do if we get e slot in a room
+    socket.on('MATCHMAKERJS_JOIN_ROOM', function (data) {
+        out(data.roomID);
+        searchRoom=false;
+        roomID=data.roomID;
+    });
+    
+    //what to do with other messages
+    socket.on('MATCHMAKERJS_MESSAGE', function (data) {
+        out(data.text);
+    });
+
+    //what to do with updates
+    socket.on('MATCHMAKERJS_UPDATE', function (data) {
+        out(data.name);
+    });
+
+    //specify this if you want to get debug statements from server
+    socket.on("MATCHMAKERJS_DEBUG", function(data){
+        out(data.text);
+    })
+
+    socket.on('MATCHMAKERJS_NAME_EXIST', function(data)
+    {
+        out(data.text);
+    });
+    
+    function JOIN_ROOM()
+    {
+        if(searchRoom)
+        {
+            //sending roomrequest
+            out("SEND JOIN_ROOM req");
+            socket.emit("MATCHMAKERJS_JOIN_ROOM", player);
+        }
+        else
+        {
+            //sending updates
+            socket.emit("MATCHMAKERJS_UPDATE", {'player':player});
+        }
+    }
+    function out(data)
+    {
+        document.getElementById("data").innerHTML=data;
+        console.log(data);
+    }
+
+    setInterval(JOIN_ROOM, 1000);
+</script>
