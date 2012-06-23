@@ -23,6 +23,6 @@ io.on("connection", function(socket)
     socket.on('MATCHMAKERJS_UPDATE', function(data)
     {
         //broadcast updates to a room
-        matchMaker.broadcastToRoom("MATCHMAKERJS_UPDATE", socket, data, data.roomID);
+        matchMaker.broadcastToRoom("MATCHMAKERJS_UPDATE", socket, data);
     });
 });

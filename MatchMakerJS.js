@@ -36,6 +36,8 @@ var ROOM_CONFIG=
 }
 var UUIDConf=
 {
+    prefix:"",
+    suffix:"",
     digits:2,
     groups:2
 }
@@ -55,6 +57,8 @@ function MatchMakerJS()
     this.codes[PLAYER_QUEUED]={text:'player added to queue', code:PLAYER_QUEUED};
     this.codes[PLAYER_NAME_EXIST]={text:'player name alreqdy exist', code:PLAYER_NAME_EXIST};
 
+    if(this.debugPipe==null)
+        this.DEBUG("Debuger has not beed set");
 
     if(this.debug){
         this.DEBUG("new MatchMakerJS created");
@@ -64,6 +68,7 @@ function MatchMakerJS()
         return new MatchMakerJS();
     }
 }
+
 MatchMakerJS.prototype.getCode=function(code)
 {
     if(this.code[code]==null)
@@ -72,11 +77,14 @@ MatchMakerJS.prototype.getCode=function(code)
     }
     return this.code[code];
 }
+
+//set endpoint where debug statements should be sent
 MatchMakerJS.prototype.setDebuggerTerminal=function (socket)
 {
     this.debugPipe=socket;
 }
 
+//debug output
 MatchMakerJS.prototype.DEBUG=function(text)
 {
     if(this.debugPipe!=null)
@@ -85,6 +93,7 @@ MatchMakerJS.prototype.DEBUG=function(text)
     }
     console.log(text);
 }
+
 //---
 //MESSAGING
 //---
@@ -93,34 +102,31 @@ MatchMakerJS.prototype.message=function(socket, type)
     this.DEBUG(type);
     socket.emit("MATCHMAKERJS_MESSAGE", {text:this.codes[type].text});
 }
-
+//send a pessage to a player
 MatchMakerJS.prototype.sendMessageToPlayer=function(player, text)
 {
     player.socket.emit(MESSAGE, {'text':text});
 }
 
+//send player room confirmation
 MatchMakerJS.prototype.sendRoomAssignementToPlayer=function(player, room)
 {
     player.socket.emit(JOIN_ROOM, {text:"Slot found", 'roomID':room.roomID});
 }
 
-MatchMakerJS.prototype.broadcastToRoom=function(type, socket, data, roomID)
+//broadcast to a room
+MatchMakerJS.prototype.broadcastToRoom=function(type, socket, data)
 {
-    socket.broadcast.to(roomID).emit(type, data);
+    socket.broadcast.to(socket.roomID).emit(type, data);
 
 	if(this.debug)
 		this.DEBUG("send {"+type+"} '"+data+"' to room '"+roomID+"'");
 }
 
-MatchMakerJS.prototype.sendOrder=function(socket, data)
-{
-    socket.emit(MATCHMAKERJS_ORDER, data);
-}
-
 //creating unique id
 MatchMakerJS.prototype.createUniqueID=function()
 {
-    var UUID="UUID-";
+    var UUID=UUIDConf.prefix;
     for(var i=0;i<UUIDConf.groups;i++)
     {
         var digitsGroup="";
@@ -133,6 +139,8 @@ MatchMakerJS.prototype.createUniqueID=function()
     if(this.debug)
         this.DEBUG("UUID created {"+UUID+"}");
     
+    UUID+=UUIDConf.suffix;
+
     return UUID;
 }
 
@@ -163,6 +171,7 @@ MatchMakerJS.prototype.searchSlot=function(player)
                 room.connected++;
                 this.joinRoom(player, room);
                 this.sendRoomAssignementToPlayer(player, room);
+                player.socket.roomID=room.roomID;
 
                 this.DEBUG("players "+room.connected+" connected to room "+room.roomID);
 				
@@ -184,12 +193,11 @@ MatchMakerJS.prototype.searchSlot=function(player)
 
         this.saveRoom(room);
     	this.joinRoom(player, room); 
-        return ROOM_CREATED;
+        
+        return PLAYER_ASSIGNED;
     }
     else
     {
-       
-       
         this.queuePlayer(player);
         return PLAYER_QUEUED;
     }
@@ -197,6 +205,7 @@ MatchMakerJS.prototype.searchSlot=function(player)
     //this.searchSlot(player);
 }
 
+//add player to queue
 MatchMakerJS.prototype.queuePlayer=function(player)
 {
         this.queuedPlayers[player.id]=player;
@@ -212,7 +221,6 @@ MatchMakerJS.prototype.queuePlayer=function(player)
 MatchMakerJS.prototype.joinRoom=function(player, room)
 {
 
-    this.players[player.id]={'player':player, 'room':room);
     room.players[player.id]=player;
     player.socket.join(room.roomID);
 }
@@ -224,11 +232,12 @@ MatchMakerJS.prototype.createRoom=function(config)
     var maxPlayer=ROOM_CONFIG.maxPlayers;
     
     if(this.debug)
-        this.DEBUG("room "+roomID+" created maxPlayer"+maxPlayer);
+        this.DEBUG("room "+roomID+" created maxPlayer "+maxPlayer);
         
     return {'roomID':roomID, 'maxPlayer':maxPlayer, 'connected':0, 'players':new Array()};
 }
 
+//saving a room
 MatchMakerJS.prototype.saveRoom = function(room)
 {
     //this.rooms[room.roomID]=room;
@@ -242,10 +251,10 @@ MatchMakerJS.prototype.saveRoom = function(room)
 MatchMakerJS.prototype.createPlayer=function(config)
 {
     var socket=config.socket;
-    var id=config.id;
-    var name=config.name;
+    var id=this.createUniqueID();
     
-    return {'id':id, 'socket':socket, 'name':name};
+    return {'id':id, 'socket':socket};
 }
 
+//IDK
 module.exports = MatchMakerJS;
